@@ -1,16 +1,38 @@
 import { useState, useEffect, useRef } from "react";
+import { QUOTES } from "../constants/quotes";
 
-export function TypewriterQuote({ quote, T, accent }) {
+export function TypewriterQuote({ T, accent }) {
+  const [quote, setQuote]   = useState(QUOTES[0]);
   const [display, setDisplay] = useState("");
-  const [phase, setPhase] = useState("typing");
-  const idxRef = useRef(0);
+  const [phase, setPhase]   = useState("typing");
+  const idxRef  = useRef(0);
+  const quoteRef = useRef(quote);
+  quoteRef.current = quote;
 
+  /* ── auto-rotate every 5 seconds after typing finishes ── */
+  useEffect(() => {
+    if (phase !== "done") return;
+
+    const id = setTimeout(() => {          // ← CHANGE THIS VALUE to tune the delay
+      setQuote(q => {                      //   e.g. 8000 = 8 seconds, 3000 = 3 seconds
+        let next = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+        if (QUOTES.length > 1 && next === q)
+          next = QUOTES[(QUOTES.indexOf(q) + 1) % QUOTES.length];
+        return next;
+      });
+    }, 600000);                              // ← THE 5-SECOND TIMER IS HERE
+
+    return () => clearTimeout(id);
+  }, [phase]);
+
+  /* ── reset typewriter when quote changes ── */
   useEffect(() => {
     idxRef.current = 0;
     setDisplay("");
     setPhase("typing");
   }, [quote]);
 
+  /* ── typewriter tick ── */
   useEffect(() => {
     let t;
     if (phase === "typing") {
@@ -30,7 +52,7 @@ export function TypewriterQuote({ quote, T, accent }) {
 
   return (
     <p style={{
-      fontSize: 16, color: T.text, lineHeight: 1.55, fontWeight: 500,
+      fontSize: 18, color: T.text, lineHeight: 1.55, fontWeight: 500,
       fontFamily: "'DM Serif Display', serif", fontStyle: "italic",
       minHeight: 78, letterSpacing: ".2px",
     }}>

@@ -103,7 +103,7 @@ function ParticleBg({ dark }) {
 /* ─── typewriter quote ─────────────────────────────────── */
 function TypewriterQuote({ quote, T, accent }) {
   const [display, setDisplay] = useState("");
-  const [phase, setPhase] = useState("typing"); // typing | pausing | deleting
+  const [phase, setPhase] = useState("typing");
   const idxRef = useRef(0);
 
   useEffect(() => {
@@ -135,7 +135,7 @@ function TypewriterQuote({ quote, T, accent }) {
       fontFamily: "'DM Serif Display', serif", fontStyle: "italic",
       minHeight: 78, letterSpacing: ".2px",
     }}>
-      “{display}
+      "{display}
       <span style={{
         display: "inline-block", width: 2, height: 16, background: accent,
         marginLeft: 3, transform: "translateY(2px)",
@@ -161,9 +161,15 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showStats, setShowStats]   = useState(false);
   const [metrics, setMetrics]       = useState(load);
-
   const [quote, setQuote]           = useState(QUOTES[0]);
   const [currentTask, setCurrentTask] = useState("");
+
+  /* ── clock ──────────────────────────────────────────── */
+  const [clockTime, setClockTime]   = useState(new Date());
+  useEffect(() => {
+    const id = setInterval(() => setClockTime(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const modeRef  = useRef(mode);
   const focRef   = useRef(focusDur);
@@ -177,7 +183,6 @@ export default function App() {
   const mm         = String(Math.floor(timeLeft / 60)).padStart(2, "0");
   const ss         = String(timeLeft % 60).padStart(2, "0");
 
-  // ── theme tokens ──────────────────────────────────────
   const T = dark ? {
     bg:       "linear-gradient(145deg,#150c06 0%,#1e1208 50%,#180e06 100%)",
     card:     "rgba(32,18,8,0.72)",
@@ -224,13 +229,13 @@ export default function App() {
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.type = "sine";
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
       gain.gain.setValueAtTime(0, ctx.currentTime);
       gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.1);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5);
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 1.5);
-    } catch (e) { /* audio blocked */ }
+    } catch (e) {}
   };
 
   const changeQuote = () => {
@@ -267,7 +272,6 @@ export default function App() {
     return () => clearInterval(id);
   }, [isRunning]);
 
-  // keyboard shortcuts
   useEffect(() => {
     const onKey = e => {
       if (e.target.tagName === "INPUT") return;
@@ -276,7 +280,6 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line
   }, [focusDur]);
 
   const togglePlay  = () => setIsRunning(r => !r);
@@ -336,7 +339,22 @@ export default function App() {
       }}>
         <ParticleBg dark={dark} />
 
-        {/* top right controls */}
+        {/* ── top-left clock ── */}
+        <div style={{ position: "absolute", top: 28, left: 32, zIndex: 10, display: "flex", flexDirection: "column", gap: 2 }}>
+          <span style={{
+            fontFamily: "'DM Serif Display', serif",
+            fontSize: 50, color: T.text, letterSpacing: ".02em", lineHeight: 1,
+          }}>
+            {clockTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+          </span>
+          <span style={{
+            fontSize: 10, color: T.text, fontWeight: 800, letterSpacing: ".18em",
+          }}>
+            {clockTime.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }).toUpperCase()}
+          </span>
+        </div>
+
+        {/* ── top-right controls ── */}
         <div style={{ position: "absolute", top: 28, right: 32, zIndex: 10, display: "flex", gap: 12 }}>
           <button className="tog" onClick={() => setSoundEnabled(s => !s)} style={{
             ...b, width: 42, height: 42, borderRadius: "50%",
@@ -352,7 +370,7 @@ export default function App() {
           </button>
         </div>
 
-        {/* full-bleed landscape split */}
+        {/* ── full-bleed landscape split ── */}
         <div className="pf-grid floatUp" style={{
           position: "relative", zIndex: 1,
           display: "grid", gridTemplateColumns: "1fr 1fr",

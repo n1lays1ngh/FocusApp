@@ -1,187 +1,65 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
-  Play, Pause, RotateCcw, Settings, BarChart2, X,
-  Coffee, Brain, Flame, Clock, CheckCircle2, TrendingUp,
+  Play, Pause, RotateCcw, Settings, BarChart2,
+  Coffee, Brain,
   ChevronUp, ChevronDown, Sun, Moon, Target, Volume2, VolumeX
 } from "lucide-react";
 
-/* ─── persistence ─────────────────────────────────────── */
-const SK = "pomoflow_v2_metrics";
-const DEF = { totalFocusMinutes: 0, sessionsCompleted: 0, lastActiveDate: null, currentStreak: 0 };
-const load = () => { try { const r = localStorage.getItem(SK); return r ? { ...DEF, ...JSON.parse(r) } : { ...DEF }; } catch { return { ...DEF }; } };
-const save = m => { try { localStorage.setItem(SK, JSON.stringify(m)); } catch {} };
-const today = () => new Date().toISOString().split("T")[0];
-const streak = m => {
-  if (!m.lastActiveDate) return 1;
-  const d = Math.round((new Date(today()) - new Date(m.lastActiveDate)) / 86_400_000);
-  return d === 0 ? m.currentStreak : d === 1 ? m.currentStreak + 1 : 1;
-};
 
-/* ─── curated quotes ───────────────────────────────────── */
-const QUOTES = [
-  "Focus is a muscle, and you are building it right now.",
-  "Protect your peace, protect your time.",
-  "Simplicity is the ultimate sophistication.",
-  "Deep work is the superpower of the 21st century.",
-  "Where attention goes, energy flows.",
-  "Do it now. Sometimes 'later' becomes 'never'.",
-  "Be regular and orderly in your life, so that you may be violent and original in your work.",
-];
-
-/* ─── canvas particle bg ───────────────────────────────── */
-function ParticleBg({ dark }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    const canvas = ref.current;
-    const ctx = canvas.getContext("2d");
-    let W, H, particles = [], raf;
-    const mouse = { x: 0, y: 0 };
-
-    const resize = () => {
-      W = canvas.width  = canvas.offsetWidth;
-      H = canvas.height = canvas.offsetHeight;
-    };
-    resize();
-    window.addEventListener("resize", resize);
-    window.addEventListener("mousemove", e => {
-      const r = canvas.getBoundingClientRect();
-      mouse.x = e.clientX - r.left;
-      mouse.y = e.clientY - r.top;
-    });
-
-    const lightCols = ["rgba(201,74,43,0.18)", "rgba(196,146,42,0.14)", "rgba(180,100,60,0.12)", "rgba(230,180,120,0.10)"];
-    const darkCols  = ["rgba(201,74,43,0.22)", "rgba(196,146,42,0.16)", "rgba(120,50,20,0.18)",  "rgba(80,30,10,0.12)"];
-
-    const mkParticle = () => ({
-      x: Math.random() * W, y: Math.random() * H,
-      r: 30 + Math.random() * 90,
-      vx: (Math.random() - .5) * .18,
-      vy: (Math.random() - .5) * .18,
-      col: dark ? darkCols[Math.floor(Math.random() * darkCols.length)]
-                : lightCols[Math.floor(Math.random() * lightCols.length)],
-      phase: Math.random() * Math.PI * 2,
-      speed: .004 + Math.random() * .006,
-    });
-
-    for (let i = 0; i < 26; i++) particles.push(mkParticle());
-
-    const draw = () => {
-      ctx.clearRect(0, 0, W, H);
-      const t = performance.now();
-      particles.forEach(p => {
-        const dx = (mouse.x - W / 2) * .012;
-        const dy = (mouse.y - H / 2) * .012;
-        p.x += p.vx + Math.sin(t * p.speed + p.phase) * .25 + dx * .008;
-        p.y += p.vy + Math.cos(t * p.speed + p.phase) * .25 + dy * .008;
-        if (p.x < -120) p.x = W + 120;
-        if (p.x > W + 120) p.x = -120;
-        if (p.y < -120) p.y = H + 120;
-        if (p.y > H + 120) p.y = -120;
-
-        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
-        g.addColorStop(0, p.col);
-        g.addColorStop(1, "transparent");
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = g;
-        ctx.fill();
-      });
-      raf = requestAnimationFrame(draw);
-    };
-    draw();
-    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); };
-  }, [dark]);
-
-  return (
-    <canvas ref={ref} style={{
-      position: "absolute", inset: 0, width: "100%", height: "100%",
-      pointerEvents: "none", zIndex: 0,
-    }} />
-  );
-}
-
-/* ─── typewriter quote ─────────────────────────────────── */
-function TypewriterQuote({ quote, T, accent }) {
-  const [display, setDisplay] = useState("");
-  const [phase, setPhase] = useState("typing");
-  const idxRef = useRef(0);
-
-  useEffect(() => {
-    idxRef.current = 0;
-    setDisplay("");
-    setPhase("typing");
-  }, [quote]);
-
-  useEffect(() => {
-    let t;
-    if (phase === "typing") {
-      if (idxRef.current < quote.length) {
-        t = setTimeout(() => {
-          idxRef.current += 1;
-          setDisplay(quote.slice(0, idxRef.current));
-        }, 26 + Math.random() * 18);
-      } else {
-        t = setTimeout(() => setPhase("pausing"), 2200);
-      }
-    } else if (phase === "pausing") {
-      t = setTimeout(() => setPhase("done"), 10);
-    }
-    return () => clearTimeout(t);
-  }, [phase, display, quote]);
-
-  return (
-    <p style={{
-      fontSize: 16, color: T.text, lineHeight: 1.55, fontWeight: 500,
-      fontFamily: "'DM Serif Display', serif", fontStyle: "italic",
-      minHeight: 78, letterSpacing: ".2px",
-    }}>
-      "{display}
-      <span style={{
-        display: "inline-block", width: 2, height: 16, background: accent,
-        marginLeft: 3, transform: "translateY(2px)",
-        opacity: phase === "typing" ? 1 : 0.55,
-        animation: "blink 0.9s steps(1) infinite",
-      }}/>
-    </p>
-  );
-}
+import { ParticleBg }       from "./components/ParticleBg";
+import { TypewriterQuote }  from "./components/TypewriterQuote";
+import { StatsModal }       from "./components/StatsModal";
+import { useClock }         from "./hooks/useClock";
+import { useMetrics }       from "./hooks/useMetrics";
+import { useTimer }         from "./hooks/useTimer";
+import { QUOTES }           from "./constants/quotes";
+import { SettingsModal }    from "./components/SettingsModal";
 
 /* ─── ring constants ───────────────────────────────────── */
 const R = 116, CIRC = 2 * Math.PI * R;
 
-/* ─── main app ─────────────────────────────────────────── */
 export default function App() {
-  const [dark, setDark]             = useState(false);
+  const [dark, setDark]               = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [focusDur, setFocusDur]     = useState(25);
-  const [breakDur, setBreakDur]     = useState(5);
-  const [mode, setMode]             = useState("focus");
-  const [timeLeft, setTimeLeft]     = useState(25 * 60);
-  const [isRunning, setIsRunning]   = useState(false);
+  const [focusDur, setFocusDur]       = useState(25);
+  const [breakDur, setBreakDur]       = useState(5);
   const [showSettings, setShowSettings] = useState(false);
-  const [showStats, setShowStats]   = useState(false);
-  const [metrics, setMetrics]       = useState(load);
-  const [quote, setQuote]           = useState(QUOTES[0]);
+  const [showStats, setShowStats]       = useState(false);
+  const [longBreakDur, setLongBreakDur] = useState(15);
+  const [sessionsUntilLongBreak, setSessionsUntilLongBreak] = useState(4);
+  const [autoStart, setAutoStart]       = useState(false);
+  const [notificationSound, setNotificationSound] = useState("bell");
+  const [timerFormat, setTimerFormat]   = useState("mmss");
+  const [quote, setQuote]             = useState(QUOTES[0]);
   const [currentTask, setCurrentTask] = useState("");
 
-  /* ── clock ──────────────────────────────────────────── */
-  const [clockTime, setClockTime]   = useState(new Date());
-  useEffect(() => {
-    const id = setInterval(() => setClockTime(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
+  const clockTime           = useClock();
+  const { metrics, recordSession } = useMetrics();
 
-  const modeRef  = useRef(mode);
-  const focRef   = useRef(focusDur);
-  const brkRef   = useRef(breakDur);
-  modeRef.current = mode; focRef.current = focusDur; brkRef.current = breakDur;
+  const changeQuote = () => {
+    setQuote(q => {
+      let next = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+      if (QUOTES.length > 1 && next === q) {
+        next = QUOTES[(QUOTES.indexOf(q) + 1) % QUOTES.length];
+      }
+      return next;
+    });
+  };
 
-  const isFocus    = mode === "focus";
-  const totalSecs  = isFocus ? focusDur * 60 : breakDur * 60;
-  const progress   = 1 - timeLeft / totalSecs;
-  const dash       = progress * CIRC;
-  const mm         = String(Math.floor(timeLeft / 60)).padStart(2, "0");
-  const ss         = String(timeLeft % 60).padStart(2, "0");
+  const { mode, timeLeft, isRunning, togglePlay, handleReset, switchMode } = useTimer({
+    focusDur,
+    breakDur,
+    soundEnabled,
+    onSessionComplete: recordSession,
+    onQuoteChange: changeQuote,
+  });
+
+  const isFocus   = mode === "focus";
+  const totalSecs = isFocus ? focusDur * 60 : breakDur * 60;
+  const progress  = 1 - timeLeft / totalSecs;
+  const dash      = progress * CIRC;
+  const mm        = String(Math.floor(timeLeft / 60)).padStart(2, "0");
+  const ss        = String(timeLeft % 60).padStart(2, "0");
 
   const T = dark ? {
     bg:       "linear-gradient(145deg,#150c06 0%,#1e1208 50%,#180e06 100%)",
@@ -220,88 +98,14 @@ export default function App() {
   const glow     = isFocus ? "rgba(201,74,43,0.32)" : "rgba(196,146,42,0.28)";
   const accentMd = isFocus ? "rgba(201,74,43,0.18)" : "rgba(196,146,42,0.16)";
 
-  const playChime = () => {
-    if (!soundEnabled) return;
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
-      gain.gain.setValueAtTime(0, ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.1);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 1.5);
-    } catch (e) {}
-  };
-
-  const changeQuote = () => {
-    setQuote(q => {
-      let next = QUOTES[Math.floor(Math.random() * QUOTES.length)];
-      if (QUOTES.length > 1 && next === q) {
-        next = QUOTES[(QUOTES.indexOf(q) + 1) % QUOTES.length];
-      }
-      return next;
-    });
-  };
-
   useEffect(() => {
     document.title = `${mm}:${ss} | ${isFocus ? "Focus" : "Break"} — PomoFlow`;
   }, [timeLeft, mode]);
 
-  useEffect(() => {
-    if (!isRunning) return;
-    const id = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev > 1) return prev - 1;
-        playChime();
-        changeQuote();
-        if (modeRef.current === "focus") {
-          setMetrics(m => {
-            const u = { ...m, totalFocusMinutes: m.totalFocusMinutes + focRef.current,
-              sessionsCompleted: m.sessionsCompleted + 1, lastActiveDate: today(), currentStreak: streak(m) };
-            save(u); return u;
-          });
-          setMode("break"); return brkRef.current * 60;
-        } else { setMode("focus"); return focRef.current * 60; }
-      });
-    }, 1000);
-    return () => clearInterval(id);
-  }, [isRunning]);
-
-  useEffect(() => {
-    const onKey = e => {
-      if (e.target.tagName === "INPUT") return;
-      if (e.code === "Space") { e.preventDefault(); setIsRunning(r => !r); }
-      if (e.key.toLowerCase() === "r") handleReset();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [focusDur]);
-
-  const togglePlay  = () => setIsRunning(r => !r);
-  const handleReset = () => { setIsRunning(false); setMode("focus"); setTimeLeft(focusDur * 60); };
-  const setFoc = v => { const n = Math.max(1, Math.min(99, v)); setFocusDur(n); if (!isRunning && mode === "focus") setTimeLeft(n * 60); };
-  const setBrk = v => { const n = Math.max(1, Math.min(30, v)); setBreakDur(n); if (!isRunning && mode === "break") setTimeLeft(n * 60); };
-
-  const switchMode = m => {
-    if (isRunning) return;
-    setMode(m);
-    setTimeLeft((m === "focus" ? focusDur : breakDur) * 60);
-    changeQuote();
-  };
+  const setFoc = v => { const n = Math.max(1, Math.min(99, v)); setFocusDur(n); if (!isRunning && mode === "focus") handleReset(); };
+  const setBrk = v => { const n = Math.max(1, Math.min(30, v)); setBreakDur(n); };
 
   const b = { border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.22s", fontFamily: "inherit" };
-
-  const statItems = [
-    { icon: <Clock  size={19} color={accent} strokeWidth={2}/>,  label: "Minutes Focused", value: metrics.totalFocusMinutes, unit: "min" },
-    { icon: <CheckCircle2 size={19} color="#c4922a" strokeWidth={2}/>, label: "Sessions Done", value: metrics.sessionsCompleted, unit: "" },
-    { icon: <Flame  size={19} color="#c94a2b" strokeWidth={2}/>, label: "Day Streak", value: metrics.currentStreak, unit: "days" },
-    { icon: <TrendingUp size={19} color={accent2} strokeWidth={2}/>, label: "Hours Focused", value: (metrics.totalFocusMinutes / 60).toFixed(1), unit: "hrs" },
-  ];
 
   return (
     <>
@@ -449,7 +253,7 @@ export default function App() {
                 const active = mode === id;
                 const ac = id === "focus" ? "#c94a2b" : "#c4922a";
                 return (
-                  <button key={id} className="mdbtn" onClick={() => switchMode(id)} style={{
+                  <button key={id} className="mdbtn" onClick={() => switchMode(id, { focusDur, breakDur })} style={{
                     ...b, padding: "8px 22px", borderRadius: 100,
                     background: active ? (id === "focus" ? "rgba(201,74,43,0.14)" : "rgba(196,146,42,0.14)") : "transparent",
                     color: active ? ac : T.muted,
@@ -520,7 +324,7 @@ export default function App() {
               SPACE TO PLAY · R TO RESET
             </span>
 
-            {showSettings && (
+            {/* {showSettings && (
               <div className="fi" style={{
                 width: "min(360px, 90%)", background: T.inputRow,
                 border: `1px solid ${T.subtle}`, borderRadius: 20, padding: "18px 22px",
@@ -548,73 +352,43 @@ export default function App() {
                   </div>
                 ))}
               </div>
-            )}
+            )} */}
           </div>
         </div>
       </div>
+      {showSettings && (
+        <SettingsModal
+          T={T}
+          accent={accent}
+          accent2={accent2}
+          dark={dark}
+          onClose={() => setShowSettings(false)}
+          focusDur={focusDur}
+          breakDur={breakDur}
+          setFoc={setFoc}
+          setBrk={setBrk}
+          longBreakDur={longBreakDur}
+          setLongBreakDur={setLongBreakDur}
+          sessionsUntilLongBreak={sessionsUntilLongBreak}
+          setSessionsUntilLongBreak={setSessionsUntilLongBreak}
+          autoStart={autoStart}
+          setAutoStart={setAutoStart}
+          notificationSound={notificationSound}
+          setNotificationSound={setNotificationSound}
+          timerFormat={timerFormat}
+          setTimerFormat={setTimerFormat}
+        />
+      )}
 
       {showStats && (
-        <div onClick={() => setShowStats(false)} style={{
-          position: "fixed", inset: 0,
-          background: dark ? "rgba(0,0,0,0.7)" : "rgba(100,50,20,0.35)",
-          backdropFilter: "blur(12px)", display: "flex",
-          alignItems: "center", justifyContent: "center", zIndex: 200, padding: 16,
-        }}>
-          <div className="mi" onClick={e => e.stopPropagation()} style={{
-            background: T.modal,
-            border: `1px solid ${T.cardBdr}`,
-            borderRadius: 28, padding: "34px 34px 28px",
-            width: "min(370px,95vw)",
-            display: "flex", flexDirection: "column", gap: 20,
-            fontFamily: "'Syne',sans-serif",
-            boxShadow: dark ? "0 40px 100px rgba(0,0,0,0.65)" : "0 24px 80px rgba(100,40,20,0.22)",
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                <span style={{ fontSize: 10, color: T.muted, letterSpacing: ".22em", fontWeight: 700 }}>LIFETIME STATS</span>
-                <h2 style={{ color: T.text, fontSize: 20, fontWeight: 800, letterSpacing: "-.3px" }}>Your Progress</h2>
-              </div>
-              <button onClick={() => setShowStats(false)} style={{
-                ...b, width: 33, height: 33, borderRadius: "50%",
-                background: T.ctrl, border: "none", color: T.muted,
-              }}>
-                <X size={15} strokeWidth={2.2}/>
-              </button>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              {statItems.map(({ icon, label, value, unit }) => (
-                <div key={label} style={{
-                  background: T.statCard, border: `1px solid ${T.subtle}`,
-                  borderRadius: 16, padding: "14px 15px",
-                  display: "flex", flexDirection: "column", gap: 9,
-                }}>
-                  {icon}
-                  <div>
-                    <p style={{ fontSize: 24, fontWeight: 800, color: T.text, lineHeight: 1, letterSpacing: "-.5px" }}>
-                      {value}
-                      <span style={{ fontSize: 12, color: T.muted, marginLeft: 4, fontWeight: 600 }}>{unit}</span>
-                    </p>
-                    <p style={{ marginTop: 4, fontSize: 11, color: T.muted, fontWeight: 500 }}>{label}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{
-              background: T.statCard, border: `1px solid ${T.subtle}`,
-              borderRadius: 12, padding: "11px 15px",
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-            }}>
-              <span style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>Last active</span>
-              <span style={{ fontSize: 13, color: T.text, fontWeight: 600 }}>
-                {metrics.lastActiveDate
-                  ? new Date(metrics.lastActiveDate + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
-                  : "—"}
-              </span>
-            </div>
-          </div>
-        </div>
+        <StatsModal
+          metrics={metrics}
+          T={T}
+          accent={accent}
+          accent2={accent2}
+          dark={dark}
+          onClose={() => setShowStats(false)}
+        />
       )}
     </>
   );
